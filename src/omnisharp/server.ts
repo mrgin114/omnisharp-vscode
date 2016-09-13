@@ -15,7 +15,7 @@ import * as omnisharp from './omnisharp';
 import * as download from './download';
 import {readOptions} from './options';
 import {Logger} from './logger';
-import {DelayTracker} from './delayTracker';
+import {DelayReporter} from './delayTracker';
 import {LaunchTarget, findLaunchTargets, getDefaultFlavor} from './launcher';
 import {Platform, getCurrentPlatform} from '../platform';
 import TelemetryReporter from 'vscode-extension-telemetry';
@@ -69,7 +69,7 @@ const TelemetryReportingDelay = 2 * 60 * 1000; // two minutes
 export abstract class OmnisharpServer {
 
     private _reporter: TelemetryReporter;
-    private _delayTrackers: { [requestName: string]: DelayTracker };
+    private _delayReporter: DelayReporter;
     private _telemetryIntervalId: NodeJS.Timer = undefined;
 
     private _eventBus = new EventEmitter();
@@ -88,6 +88,7 @@ export abstract class OmnisharpServer {
     constructor(reporter: TelemetryReporter) {
         this._extraArgs = [];
         this._reporter = reporter;
+        this._delayReporter = new DelayReporter(reporter);
 
         this._channel = vscode.window.createOutputChannel('OmniSharp Log');
         this._logger = new Logger(message => this._channel.append(message));
@@ -105,31 +106,6 @@ export abstract class OmnisharpServer {
         if (typeof value !== 'undefined' && value !== this._state) {
             this._state = value;
             this._fireEvent(Events.StateChanged, this._state);
-        }
-    }
-
-    private _recordRequestDelay(requestName: string, elapsedTime: number) {
-        let tracker = this._delayTrackers[requestName];
-        if (!tracker) {
-            tracker = new DelayTracker(requestName);
-            this._delayTrackers[requestName] = tracker;
-        }
-
-        tracker.reportDelay(elapsedTime);
-    }
-
-    private _reportTelemetry() {
-        const delayTrackers = this._delayTrackers;
-
-        for (const path in delayTrackers) {
-            const tracker = delayTrackers[path];
-            const eventName = 'omnisharp' + path;
-            if (tracker.hasMeasures()) {
-                const measures = tracker.getMeasures();
-                tracker.clearMeasures();
-
-                this._reporter.sendTelemetryEvent(eventName, null, measures);
-            }
         }
     }
 
@@ -282,7 +258,7 @@ export abstract class OmnisharpServer {
                 this._logger.appendLine();
 
                 this._serverProcess = value.process;
-                this._delayTrackers = {};
+                this._delayReporter.reset();
                 this._setState(ServerState.Started);
                 this._fireEvent(Events.ServerStart, solutionPath);
 
@@ -296,7 +272,7 @@ export abstract class OmnisharpServer {
                     });
             }).then(() => {
                 // Start telemetry reporting
-                this._telemetryIntervalId = setInterval(() => this._reportTelemetry(), TelemetryReportingDelay);
+                this._telemetryIntervalId = setInterval(() => this._delayReporter.sendTelemetryEvents(), TelemetryReportingDelay);
             }).then(() => {
                 this._processQueue();
             }, err => {
@@ -317,7 +293,7 @@ export abstract class OmnisharpServer {
             // Stop reporting telemetry
             clearInterval(this._telemetryIntervalId);
             this._telemetryIntervalId = undefined;
-            this._reportTelemetry();
+            this._delayReporter.sendTelemetryEvents();
         }
 
         if (!this._serverProcess) {
@@ -499,7 +475,7 @@ export abstract class OmnisharpServer {
         return promise.then(response => {
             let endTime = Date.now();
             let elapsedTime = endTime - startTime;
-            this._recordRequestDelay(path, elapsedTime);
+            this._delayReporter.reportDelay(path, elapsedTime);
 
             return response;
         });

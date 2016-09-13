@@ -5,6 +5,8 @@
 
 'use strict';
 
+import TelemetryReporter from 'vscode-extension-telemetry';
+
 const ImmedateDelayMax = 25;
 const NearImmediateDelayMax = 50;
 const ShortDelayMax = 250;
@@ -12,7 +14,7 @@ const MediumDelayMax = 500;
 const IdleDelayMax = 1500;
 const NonFocusDelayMax = 3000;
 
-export class DelayTracker {
+class DelayTracker {
     private _name: string;
 
     private _immediateDelays: number = 0;      // 0-25 milliseconds
@@ -85,5 +87,45 @@ export class DelayTracker {
             nonFocusDelays: this._nonFocusDelays,
             bigDelays: this._bigDelays
         };
+    }
+}
+
+export class DelayReporter {
+    private _reporter: TelemetryReporter;
+    private _trackers: { [name: string]: DelayTracker };
+
+    constructor(reporter: TelemetryReporter) {
+        this._reporter = reporter;
+        this.reset();
+    }
+
+    public reset() {
+        this._trackers = {};
+    }
+
+    public reportDelay(name: string, elapsedTime: number) {
+        let tracker = this._trackers[name];
+        if (!tracker) {
+            tracker = new DelayTracker(name);
+            this._trackers[name] = tracker;
+        }
+
+        tracker.reportDelay(elapsedTime);
+    }
+
+    public sendTelemetryEvents() {
+        const trackers = this._trackers;
+
+        for (const name in trackers) {
+            const tracker = trackers[name];
+            const eventName = 'omnisharp' + name;
+
+            if (tracker.hasMeasures()) {
+                const measures = tracker.getMeasures();
+                tracker.clearMeasures();
+
+                this._reporter.sendTelemetryEvent(eventName, null, measures);
+            }
+        }
     }
 }
