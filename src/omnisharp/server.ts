@@ -442,7 +442,8 @@ export abstract class OmnisharpServer {
     public makeRequest<TResponse>(path: string, data?: any, token?: vscode.CancellationToken): Promise<TResponse> {
 
         if (this._getState() !== ServerState.Started) {
-            return Promise.reject<TResponse>('server has been stopped or not started');
+            this._logger.appendLine(`Error: Attempted server request '${path}' but server was not started.'`);
+            return Promise.reject<TResponse>('Server has been stopped or not started');
         }
 
         let startTime: number;
@@ -474,7 +475,9 @@ export abstract class OmnisharpServer {
                     this._queue.splice(index, 1);
 
                     // raise an error on the request, which in turn rejects the promise.
-                    const message = `Server request cancelled: ${path}`
+                    const message = `Server request cancelled: ${path}`;
+                    this._logger.appendLine(message);
+
                     let err = new Error(message);
                     err.message = message;
 
@@ -512,7 +515,7 @@ export abstract class OmnisharpServer {
             thisRequest.onError(err);
             this._processQueue();
         }).catch(err => {
-            console.error(err);
+            this._logger.appendLine(`Error: ${err}`);
             this._processQueue();
         });
     }
