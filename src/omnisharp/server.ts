@@ -462,11 +462,16 @@ export abstract class OmnisharpServer {
 
         if (token) {
             token.onCancellationRequested(() => {
-                let idx = this._queue.indexOf(request);
-                if (idx !== -1) {
-                    this._queue.splice(idx, 1);
-                    let err = new Error('Canceled');
-                    err.message = 'Canceled';
+                // The request has been cancelled. Remove it from the queue.
+                let index = this._queue.indexOf(request);
+                if (index !== -1) {
+                    this._queue.splice(index, 1);
+
+                    // raise an error on the request, which in turn rejects the promise.
+                    const message = `Server request cancelled: ${path}`
+                    let err = new Error(message);
+                    err.message = message;
+
                     request.onError(err);
                 }
             });
