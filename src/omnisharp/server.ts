@@ -13,7 +13,7 @@ import {launchOmniSharp} from './launcher';
 import * as protocol from './protocol';
 import * as omnisharp from './omnisharp';
 import * as download from './download';
-import {readOptions} from './options';
+import {Options} from './options';
 import {Logger} from './logger';
 import {DelayReporter} from './delayTracker';
 import {LaunchTarget, findLaunchTargets, getDefaultFlavor} from './launcher';
@@ -78,6 +78,7 @@ export abstract class OmnisharpServer {
     private _queue: Request[] = [];
     private _isProcessingQueue = false;
     private _channel: vscode.OutputChannel;
+    private _options: Options;
     protected _logger: Logger;
 
     private _isDebugEnable: boolean = false;
@@ -89,6 +90,7 @@ export abstract class OmnisharpServer {
         this._extraArgs = [];
         this._reporter = reporter;
         this._delayReporter = new DelayReporter(reporter);
+        this._readOptions();
 
         this._channel = vscode.window.createOutputChannel('OmniSharp Log');
         this._logger = new Logger(message => this._channel.append(message));
@@ -107,6 +109,10 @@ export abstract class OmnisharpServer {
             this._state = value;
             this._fireEvent(Events.StateChanged, this._state);
         }
+    }
+
+    private _readOptions(): void {
+        this._options = Options.read();
     }
 
     public getSolutionPathOrFolder(): string {
@@ -206,10 +212,11 @@ export abstract class OmnisharpServer {
     // --- start, stop, and connect
 
     private _start(launchTarget: LaunchTarget): Promise<void> {
-        const options = readOptions();
+        // Read in options every time the OmniSharp server is started
+        this._readOptions();
 
         let flavor: omnisharp.Flavor;
-        if (options.path !== undefined && options.useMono === true) {
+        if (this._options.path !== undefined && this._options.useMono === true) {
             flavor = omnisharp.Flavor.Mono;
         }
         else {
@@ -229,7 +236,7 @@ export abstract class OmnisharpServer {
                 '--encoding', 'utf-8'
             ];
 
-            if (options.loggingLevel === 'verbose') {
+            if (this._options.loggingLevel === 'verbose') {
                 args.push('-v');
             }
 
@@ -384,15 +391,14 @@ export abstract class OmnisharpServer {
         // Attempt to find launch file path first from options, and then from the default install location.
         // If OmniSharp can't be found, download it.
 
-        const options = readOptions();
         const installDirectory = omnisharp.getInstallDirectory(flavor);
 
         return new Promise<string>((resolve, reject) => {
-            if (options.path) {
-                return omnisharp.findServerPath(options.path).then(serverPath => {
+            if (this._options.path) {
+                return omnisharp.findServerPath(this._options.path).then(serverPath => {
                     return resolve(serverPath);
                 }).catch(err => {
-                    vscode.window.showWarningMessage(`Invalid value specified for "omnisharp.path" ('${options.path}).`);
+                    vscode.window.showWarningMessage(`Invalid value specified for "omnisharp.path" ('${this._options.path}).`);
                     return reject(err);
                 });
             }

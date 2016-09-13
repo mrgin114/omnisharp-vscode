@@ -20,7 +20,7 @@ import reportDiagnostics,{Advisor} from './features/diagnosticsProvider';
 import SignatureHelpProvider from './features/signatureHelpProvider';
 import registerCommands from './features/commands';
 import {StdioOmnisharpServer} from './omnisharp/server';
-import {readOptions} from './omnisharp/options';
+import {Options} from './omnisharp/options';
 import forwardChanges from './features/changeForwarding';
 import reportStatus from './features/status';
 import * as coreclrdebug from './coreclr-debug/activate';
@@ -89,7 +89,7 @@ export function activate(context: vscode.ExtensionContext): any {
 	// read and store last solution or folder path
 	disposables.push(server.onBeforeServerStart(path => context.workspaceState.update('lastSolutionPathOrFolder', path)));
 
-	const options = readOptions();
+	const options = Options.read();
 	if (options.autoStart) {
 		server.autoStart(context.workspaceState.get<string>('lastSolutionPathOrFolder'));
 	}

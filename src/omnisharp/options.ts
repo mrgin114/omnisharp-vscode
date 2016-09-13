@@ -14,26 +14,30 @@ export interface Options {
     autoStart?: boolean;
 }
 
-export function readOptions(): Options {
-    // Extra effort is taken below to ensure that legacy versions of options
-    // are supported below. In particular, these are:
-    //
-    // - "csharp.omnisharp" -> "omnisharp.path"
-    // - "csharp.omnisharpUsesMono" -> "omnisharp.useMono"
+export module Options {
 
-    const omnisharpConfig = vscode.workspace.getConfiguration('omnisharp');
-    const csharpConfig = vscode.workspace.getConfiguration('csharp');
+    export function read(): Options {
+        // Extra effort is taken below to ensure that legacy versions of options
+        // are supported below. In particular, these are:
+        //
+        // - "csharp.omnisharp" -> "omnisharp.path"
+        // - "csharp.omnisharpUsesMono" -> "omnisharp.useMono"
 
-    const path = csharpConfig.has('omnisharp')
-        ? csharpConfig.get<string>('omnisharp')
-        : omnisharpConfig.get<string>('path');
+        const omnisharpConfig = vscode.workspace.getConfiguration('omnisharp');
+        const csharpConfig = vscode.workspace.getConfiguration('csharp');
 
-    const useMono = csharpConfig.has('omnisharpUsesMono')
-        ? csharpConfig.get<boolean>('omnisharpUsesMono')
-        : omnisharpConfig.get<boolean>('useMono');
+        const path = csharpConfig.has('omnisharp')
+            ? csharpConfig.get<string>('omnisharp')
+            : omnisharpConfig.get<string>('path');
 
-    const loggingLevel = omnisharpConfig.get<string>('loggingLevel');
-    const autoStart = omnisharpConfig.get<boolean>('autoStart', true);
+        const useMono = csharpConfig.has('omnisharpUsesMono')
+            ? csharpConfig.get<boolean>('omnisharpUsesMono')
+            : omnisharpConfig.get<boolean>('useMono');
 
-    return { path, useMono, loggingLevel, autoStart };
+        const loggingLevel = omnisharpConfig.get<string>('loggingLevel');
+        const autoStart = omnisharpConfig.get<boolean>('autoStart', true);
+
+        return { path, useMono, loggingLevel, autoStart };
+    }
+
 }
